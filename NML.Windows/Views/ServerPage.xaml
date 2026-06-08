@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="NML.Windows.Views.ServerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid RowSpacing="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Spacing="8">
+            <TextBlock Text="服务器管理" Style="{ThemeResource TitleTextBlockStyle}"/>
+            <TextBlock Text="本地开服 | 管理玩家" Opacity="0.6"/>
+        </StackPanel>
+
+        <!-- Actions -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12">
+            <Button x:Name="CreateServerButton" Click="CreateServerButton_Click" Style="{ThemeResource AccentButtonStyle}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <SymbolIcon Symbol="Add"/>
+                    <TextBlock Text="创建服务器" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Button>
+
+            <Button x:Name="ImportServerButton" Click="ImportServerButton_Click">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <SymbolIcon Symbol="Import"/>
+                    <TextBlock Text="导入服务器"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
+        <!-- Server List -->
+        <ListView Grid.Row="2" x:Name="ServersList">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <SymbolIcon Grid.Column="0" Symbol="Server" FontSize="32"/>
+
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="{Binding Version}" FontSize="12" Opacity="0.6"/>
+                                <TextBlock Text="{Binding Status}" FontSize="12" Opacity="0.8"/>
+                                <TextBlock Text="{Binding PlayerCount}" FontSize="12" Opacity="0.6"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                            <Button Content="启动" Click="StartButton_Click" Style="{ThemeResource AccentButtonStyle}"/>
+                            <Button Content="配置" Click="ConfigButton_Click"/>
+                            <Button Content="控制台" Click="ConsoleButton_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </Grid>
+</Page>

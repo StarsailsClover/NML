@@ -1,0 +1,75 @@
+[package]
+name = "nml-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["NML Team"]
+description = "N0th1ngness Minecraft Launcher - Core Library"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/NML-Team/nml-core"
+
+[lib]
+name = "nml_core"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# HTTP client
+reqwest = { version = "0.11", features = ["json", "stream"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Async utilities
+futures = "0.3"
+async-trait = "0.1"
+
+# File system
+tokio-fs = "0.1"
+
+# Hash verification
+sha1 = "0.10"
+hex = "0.4"
+
+# Configuration
+dirs = "5.0"
+
+# Process management
+sysinfo = "0.30"
+
+# ZIP archive
+zip = "0.6"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Platform-specific
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# FFI for interop
+[dependencies.uniffi]
+version = "0.25"
+
+[build-dependencies]
+uniffi = { version = "0.25", features = ["build"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

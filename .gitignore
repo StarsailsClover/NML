@@ -1,0 +1,65 @@
+# NML - Git Ignore
+# Only essential source code and documents
+
+# Build outputs
+target/
+bin/
+obj/
+publish/
+build/
+release/
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+
+# IDE and editor
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userprefs
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.cache
+
+# Package manager
+Cargo.lock
+node_modules/
+
+# Downloaded resources (not source code)
+resources/*.zip
+resources/*-main/
+resources/*-master/
+resources/*-develop/
+
+# Build scripts (not source)
+build.ps1
+package.ps1
+DEPLOY_MCP.bat
+
+# Documentation drafts and notes
+DAY*.md
+PROGRESS*.md
+FINAL*.md
+BE_OPTIMIZER_NOTES.md
+MCP_SETUP_GUIDE.md
+VS2026_MCP_SETUP.md
+YEAH114_ANALYSIS.md
+
+# GitHub Actions (keep workflow but ignore local runs)
+.github/workflows/*.yml.bak
+
+# Test outputs
+test_output/
+*.testresults
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini

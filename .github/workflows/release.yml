@@ -1,0 +1,54 @@
+name: NML Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Rust
+      uses: dtolnay/rust-action@stable
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+        
+    - name: Build Rust Core
+      run: |
+        cd nml-core
+        cargo build --release
+        
+    - name: Build Windows UI
+      run: |
+        cd NML.Windows
+        dotnet build -c Release
+        
+    - name: Publish
+      run: |
+        cd NML.Windows
+        dotnet publish -c Release -r win-x64 --self-contained true `
+          -p:PublishSingleFile=true `
+          -o ../publish
+          
+    - name: Package
+      run: |
+        $version = $env:GITHUB_REF -replace 'refs/tags/',''
+        Compress-Archive -Path publish\* -DestinationPath "NML-$version.zip"
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          NML-*.zip
+        draft: true
+        prerelease: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
