@@ -23,12 +23,12 @@ Next: (v26.50 to v26.99) - next city name
 
 ## Version History
 
-### v26.1-20240524-RC (Current)
+### v26.0-Alpha.1 (Current)
 
-- Type: Release Candidate
-- Date: 2026-05-24
-- Commit: #1 in Taipa major version
-- Status: Pre-Release
+- Type: Alpha
+- Date: 2026-07-05
+- Commit: Flutter migration baseline
+- Status: Alpha Preview
 
 Core Features (32 Rust modules):
 - Version management

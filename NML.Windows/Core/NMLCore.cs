@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -111,7 +112,7 @@ public class NMLCore : IDisposable
         IntPtr pathPtr = IntPtr.Zero;
         if (configPath != null)
         {
-            pathPtr = Marshal.StringToHGlobalAnsi(configPath);
+            pathPtr = AllocUtf8(configPath);
         }
         
         _handle = nml_init(pathPtr);
@@ -130,7 +131,7 @@ public class NMLCore : IDisposable
     public static string GetVersion()
     {
         var ptr = nml_version();
-        return Marshal.PtrToStringAnsi(ptr) ?? "unknown";
+        return PtrToStringUtf8(ptr) ?? "unknown";
     }
 
     // Version Management
@@ -146,7 +147,7 @@ public class NMLCore : IDisposable
                 return;
             }
             
-            var json = Marshal.PtrToStringAnsi(jsonPtr);
+            var json = PtrToStringUtf8(jsonPtr);
             nml_free_string(jsonPtr);
             
             try
@@ -177,7 +178,7 @@ public class NMLCore : IDisposable
                 return;
             }
             
-            var json = Marshal.PtrToStringAnsi(jsonPtr);
+            var json = PtrToStringUtf8(jsonPtr);
             nml_free_string(jsonPtr);
             
             try
@@ -198,7 +199,7 @@ public class NMLCore : IDisposable
 
     public async Task InstallVersionAsync(string versionId, IProgress<float> progress)
     {
-        var versionPtr = Marshal.StringToHGlobalAnsi(versionId);
+        var versionPtr = AllocUtf8(versionId);
         
         var tcs = new TaskCompletionSource<bool>();
         
@@ -220,8 +221,8 @@ public class NMLCore : IDisposable
     // Launch
     public void Launch(string versionId, string playerName, bool isOffline = false)
     {
-        var versionPtr = Marshal.StringToHGlobalAnsi(versionId);
-        var playerPtr = Marshal.StringToHGlobalAnsi(playerName);
+        var versionPtr = AllocUtf8(versionId);
+        var playerPtr = AllocUtf8(playerName);
         
         var result = nml_launch(_handle, versionPtr, playerPtr, isOffline);
         
@@ -237,7 +238,7 @@ public class NMLCore : IDisposable
     // Account
     public async Task<AccountInfo> AddOfflineAccountAsync(string username)
     {
-        var namePtr = Marshal.StringToHGlobalAnsi(username);
+        var namePtr = AllocUtf8(username);
         var tcs = new TaskCompletionSource<AccountInfo>();
         
         AccountCallback callback = (jsonPtr) =>
@@ -248,7 +249,7 @@ public class NMLCore : IDisposable
                 return;
             }
             
-            var json = Marshal.PtrToStringAnsi(jsonPtr);
+            var json = PtrToStringUtf8(jsonPtr);
             nml_free_string(jsonPtr);
             
             try
@@ -296,7 +297,7 @@ public class NMLCore : IDisposable
                 return;
             }
             
-            var json = Marshal.PtrToStringAnsi(jsonPtr);
+            var json = PtrToStringUtf8(jsonPtr);
             nml_free_string(jsonPtr);
             
             try
@@ -318,7 +319,7 @@ public class NMLCore : IDisposable
     // MCJEBooster
     public void EnableMCJEBooster(string mcVersion)
     {
-        var versionPtr = Marshal.StringToHGlobalAnsi(mcVersion);
+        var versionPtr = AllocUtf8(mcVersion);
         var result = nml_mcje_enable(_handle, versionPtr);
         Marshal.FreeHGlobal(versionPtr);
         
@@ -329,12 +330,34 @@ public class NMLCore : IDisposable
     }
 
     // Helpers
+    private static IntPtr AllocUtf8(string value)
+    {
+        var bytes = Encoding.UTF8.GetBytes(value + "\0");
+        var ptr = Marshal.AllocHGlobal(bytes.Length);
+        Marshal.Copy(bytes, 0, ptr, bytes.Length);
+        return ptr;
+    }
+
+    private static string? PtrToStringUtf8(IntPtr ptr)
+    {
+        if (ptr == IntPtr.Zero) return null;
+        var length = 0;
+        while (Marshal.ReadByte(ptr, length) != 0)
+        {
+            length++;
+        }
+
+        var bytes = new byte[length];
+        Marshal.Copy(ptr, bytes, 0, length);
+        return Encoding.UTF8.GetString(bytes);
+    }
+
     private string GetLastError()
     {
         var ptr = nml_get_last_error();
         if (ptr == IntPtr.Zero) return "Unknown error";
         
-        var msg = Marshal.PtrToStringAnsi(ptr);
+        var msg = PtrToStringUtf8(ptr);
         nml_free_string(ptr);
         
         return msg ?? "Unknown error";

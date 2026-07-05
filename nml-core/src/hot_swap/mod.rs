@@ -98,11 +98,7 @@ impl HotSwapCoordinator {
 }
 
 fn generate_offline_uuid(username: &str) -> String {
-    use md5::{Md5, Digest};
-    
-    let mut hasher = Md5::new();
-    hasher.update(format!("OfflinePlayer:{}", username).as_bytes());
-    let result = hasher.finalize();
+    let result = md5::compute(format!("OfflinePlayer:{}", username).as_bytes());
     
     format!(
         "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",

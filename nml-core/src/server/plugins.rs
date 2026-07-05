@@ -1,0 +1,1 @@
+//! Server plugin management (stub)

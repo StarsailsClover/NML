@@ -5,6 +5,8 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use sha2::{Digest, Sha256};
+
 use crate::error::{NMLError, Result};
 
 pub mod curseforge;
@@ -127,14 +129,30 @@ impl ModManager {
     
     /// Download mod file
     async fn download_mod(&self, mod_info: &ModInfo) -> Result<PathBuf> {
-        let mod_dir = self.data_dir.join("mods").join(&mod_info.mc_version);
+        let mod_dir = self.data_dir.join(&mod_info.mc_version);
         std::fs::create_dir_all(&mod_dir)?;
         
         let mod_path = mod_dir.join(&mod_info.file_name);
         
-        // Download
         let response = reqwest::get(&mod_info.download_url).await?;
+        if !response.status().is_success() {
+            return Err(NMLError::ModError(format!(
+                "Failed to download mod {}: HTTP {}",
+                mod_info.name,
+                response.status()
+            )));
+        }
+
         let bytes = response.bytes().await?;
+        if let Some(expected_sha256) = &mod_info.sha256 {
+            let actual_sha256 = format!("{:x}", Sha256::digest(&bytes));
+            if actual_sha256 != expected_sha256.to_lowercase() {
+                return Err(NMLError::ModError(format!(
+                    "SHA256 mismatch for mod {}",
+                    mod_info.name
+                )));
+            }
+        }
         
         tokio::fs::write(&mod_path, bytes).await?;
         
@@ -179,13 +197,17 @@ impl ModManager {
             .ok_or_else(|| NMLError::Other("Mod not installed".to_string()))?;
         
         // Search for latest version
-        let latest = self.curseforge.get_latest_version(mod_id).await?;
+        let latest = self.curseforge.get_latest_version(mod_id).await?
+            .ok_or_else(|| NMLError::Other("No update found".to_string()))?;
+        
+        // Clone path before mutable borrow
+        let old_path = installed.install_path.clone();
         
         // Download and install
         self.install(&latest).await?;
         
         // Remove old version
-        tokio::fs::remove_file(&installed.install_path).await?;
+        tokio::fs::remove_file(&old_path).await?;
         
         Ok(())
     }

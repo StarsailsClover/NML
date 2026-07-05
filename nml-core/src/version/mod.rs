@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use async_trait::async_trait;
 
 use crate::error::Result;
-use models::*;
+pub use models::*;
 
 /// Version manager trait
 #[async_trait]
@@ -36,7 +36,7 @@ pub trait VersionManager: Send + Sync {
 }
 
 /// Progress callback type
-pub type ProgressCallback = Box<dyn Fn(f32) + Send>;
+pub type ProgressCallback = Box<dyn Fn(f32) + Send + Sync>;
 
 /// Default version manager implementation
 pub struct DefaultVersionManager {
@@ -122,12 +122,16 @@ impl VersionManager for DefaultVersionManager {
         }
     }
 
-    async fn install_version(&self, id: &str, mut progress: ProgressCallback) -> Result<()> {
+    async fn install_version(&self, id: &str, progress: ProgressCallback) -> Result<()> {
         let installer = installer::VersionInstaller::new(self.data_dir.clone(), self.http_client.clone());
         installer.install(id, progress).await
     }
 
     async fn uninstall_version(&self, id: &str) -> Result<()> {
+        if id.contains("..") || id.contains('/') || id.contains('\\') {
+            return Err(crate::error::NMLError::InvalidConfig(format!("Invalid version id: {}", id)));
+        }
+
         let version_dir = self.data_dir.join("versions").join(id);
         
         if !version_dir.exists() {
@@ -157,7 +161,7 @@ impl VersionManager for DefaultVersionManager {
         // Validate SHA1 if available
         if let Some(downloads) = info.downloads {
             if let Some(client) = downloads.client {
-                let file_sha1 = crate::util::calculate_sha1(&version_jar).await?;
+                let file_sha1 = util::calculate_sha1(&version_jar).await?;
                 if file_sha1 != client.sha1 {
                     return Ok(false);
                 }

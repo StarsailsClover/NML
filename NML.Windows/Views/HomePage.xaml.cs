@@ -17,15 +17,25 @@ public sealed partial class HomePage : Page
 
     private async void LoadVersionsAsync()
     {
-        var core = App.Current.Services.GetService(typeof(CoreService)) as CoreService;
-        var versions = await core?.GetVersionsAsync()!;
+        var core = App.Current.Services.GetService(typeof(Core.NMLCore)) as Core.NMLCore;
+        if (core == null) return;
         
-        foreach (var v in versions)
+        try
         {
-            VersionList.Add(new VersionItem { Id = v, Type = "正式版", ReleaseTime = "2024-01-01" });
+            var versions = await core.GetInstalledVersionsAsync();
+            
+            foreach (var v in versions)
+            {
+                VersionList.Add(new VersionItem { Id = v, Type = "正式版", ReleaseTime = "2024-01-01" });
+            }
+            
+            VersionsGridView.ItemsSource = VersionList;
         }
-        
-        VersionsGridView.ItemsSource = VersionList;
+        catch (Exception ex)
+        {
+            // TODO: Show error dialog
+            System.Diagnostics.Debug.WriteLine($"Failed to load versions: {ex.Message}");
+        }
     }
 
     private void LaunchButton_Click(object sender, RoutedEventArgs e)

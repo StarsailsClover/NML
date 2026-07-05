@@ -196,6 +196,7 @@ impl P2PManager for DefaultP2PManager {
         let lan_injector = LANInjector::new(self.data_dir.clone()).await?;
         let game_proxy = GameProxy::new().await?;
 
+        let node_id = config.node_id.clone();
         let inner = P2PManagerInner {
             config,
             discovery,
@@ -207,7 +208,7 @@ impl P2PManager for DefaultP2PManager {
         let mut guard = self.inner.write().await;
         *guard = Some(inner);
 
-        tracing::info!("P2P node {} started", config.node_id);
+        tracing::info!("P2P node {} started", node_id);
         Ok(())
     }
 
@@ -297,7 +298,3 @@ impl P2PManager for DefaultP2PManager {
     }
 }
 
-// Re-export submodules
-pub use discovery::WorldDiscovery;
-pub use lan_injector::LANInjector;
-pub use game_proxy::GameProxy;

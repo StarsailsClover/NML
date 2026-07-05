@@ -21,7 +21,7 @@ use offline::OfflineProvider;
 use third_party::ThirdPartyProvider;
 
 /// Account type
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum AccountType {
     /// Microsoft account (Xbox Live)
@@ -55,10 +55,10 @@ pub struct Account {
     /// Player UUID
     pub uuid: String,
     /// Access token
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip)]
     pub access_token: Option<String>,
     /// Refresh token (for Microsoft)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip)]
     pub refresh_token: Option<String>,
     /// Token expiration time
     #[serde(skip_serializing_if = "Option::is_none")]

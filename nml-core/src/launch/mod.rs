@@ -1,6 +1,7 @@
 //! Launch engine for Minecraft
 
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
@@ -148,10 +149,13 @@ impl LaunchEngine {
         // 4. Build classpath
         let classpath = self.build_classpath(&version_info).await?;
 
-        // 5. Build game arguments
+        // 5. Extract natives
+        self.extract_natives(&version_info).await?;
+
+        // 6. Build game arguments
         let game_args = self.build_game_args(config, &version_info)?;
 
-        // 6. Create command
+        // 7. Create command
         let mut command = TokioCommand::new(&java_path);
         command
             .current_dir(&config.game_dir)
@@ -176,7 +180,8 @@ impl LaunchEngine {
 
         // 7. Spawn process
         let child = command.spawn()?;
-        let pid = child.id().expect("Process should have ID");
+        let pid = child.id()
+            .ok_or_else(|| NMLError::LaunchFailed("Failed to get Minecraft process ID".to_string()))?;
 
         let process = MinecraftProcess {
             pid,
@@ -249,11 +254,10 @@ impl LaunchEngine {
 
         // Version-specific JVM args (new format)
         if let Some(arguments) = &version_info.arguments {
-            if let Some(jvm_args) = &arguments.jvm {
-                for arg in jvm_args {
-                    if let serde_json::Value::String(s) = arg {
-                        args.push(s.clone());
-                    }
+            for arg in &arguments.jvm {
+                match arg {
+                    crate::version::ArgumentValue::Simple(s) => args.push(s.clone()),
+                    _ => {}
                 }
             }
         }
@@ -339,19 +343,20 @@ impl LaunchEngine {
 
         // Version-specific game args (new format)
         if let Some(arguments) = &version_info.arguments {
-            if let Some(game_args) = &arguments.game {
-                for arg in game_args {
-                    if let serde_json::Value::String(s) = arg {
+            for arg in &arguments.game {
+                match arg {
+                    crate::version::ArgumentValue::Simple(s) => {
                         let processed = self.process_argument(s, config, &uuid, &token);
                         args.push(processed);
                     }
+                    _ => {}
                 }
             }
         }
         // Old format
         else if let Some(mc_args) = &version_info.minecraft_arguments {
             let processed = self.process_argument(mc_args, config, &uuid, &token);
-            args.extend(processed.split_whitespace().map(|s| s.to_string()));
+            args.extend(split_legacy_arguments(&processed)?);
         }
 
         // Window size
@@ -418,30 +423,102 @@ impl LaunchEngine {
         Ok(())
     }
 
-    /// Check if rules apply
-    fn check_rules(&self, rules: &[serde_json::Value]) -> bool {
-        for rule in rules {
-            if let serde_json::Value::Object(map) = rule {
-                let action = map.get("action").and_then(|v| v.as_str()).unwrap_or("allow");
-                let allowed = self.check_rule(map);
+    /// Extract native libraries from JARs to the natives directory
+    async fn extract_natives(&self, version_info: &VersionInfo) -> Result<()> {
+        let natives_dir = self
+            .data_dir
+            .join("versions")
+            .join(&version_info.id)
+            .join(format!("{}-natives", version_info.id));
 
-                if allowed {
-                    return action == "allow";
+        // Skip if already extracted
+        if natives_dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(&natives_dir) {
+                if entries.count() > 0 {
+                    return Ok(());
                 }
+            }
+        }
+
+        tokio::fs::create_dir_all(&natives_dir).await?;
+        let os_key = self.get_os_key();
+
+        for library in &version_info.libraries {
+            // Check platform rules
+            if let Some(rules) = &library.rules {
+                if !self.check_rules(rules) {
+                    continue;
+                }
+            }
+
+            if let Some(natives) = &library.natives {
+                if let Some(native_classifier) = natives.get(&os_key) {
+                    if let Some(classifiers) = &library.downloads.classifiers {
+                        if let Some(_) = classifiers.get(native_classifier) {
+                            let native_jar_path = self.get_native_path(&library.name, native_classifier);
+                            if native_jar_path.exists() {
+                                let file = std::fs::File::open(&native_jar_path)?;
+                                let mut archive = zip::ZipArchive::new(file)
+                                    .map_err(|e| NMLError::other(format!("Failed to open native JAR: {}", e)))?;
+
+                                for i in 0..archive.len() {
+                                    let mut entry = archive.by_index(i)
+                                        .map_err(|e| NMLError::other(format!("Failed to read zip entry: {}", e)))?;
+
+                                    let name = entry.name().to_string();
+                                    if entry.is_dir() || name.starts_with("META-INF/") {
+                                        continue;
+                                    }
+
+                                    // Only extract native library files
+                                    let is_native = name.ends_with(".dll")
+                                        || name.ends_with(".so")
+                                        || name.ends_with(".dylib")
+                                        || name.ends_with(".jnilib");
+                                    if !is_native {
+                                        continue;
+                                    }
+
+                                    let Some(file_name) = std::path::Path::new(&name).file_name() else {
+                                        continue;
+                                    };
+                                    let dest_path = natives_dir.join(file_name);
+
+                                    let mut buf = Vec::new();
+                                    entry.read_to_end(&mut buf)?;
+                                    std::fs::write(&dest_path, &buf)?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Check if rules apply
+    fn check_rules(&self, rules: &[crate::version::Rule]) -> bool {
+        for rule in rules {
+            let allowed = if rule.action == crate::version::RuleAction::Allow {
+                self.check_rule_os(&rule.os)
+            } else {
+                !self.check_rule_os(&rule.os)
+            };
+
+            if allowed {
+                return true;
             }
         }
         false
     }
 
-    fn check_rule(&self, rule: &serde_json::Map<String, serde_json::Value>) -> bool {
-        if let Some(os) = rule.get("os") {
-            if let serde_json::Value::Object(os_map) = os {
-                let os_name = os_map.get("name").and_then(|v| v.as_str());
-                let current_os = self.get_os_name();
-                if let Some(name) = os_name {
-                    if name != current_os {
-                        return false;
-                    }
+    fn check_rule_os(&self, os: &Option<crate::version::OsCondition>) -> bool {
+        if let Some(os) = os {
+            if let Some(name) = &os.name {
+                if name != self.get_os_name() {
+                    return false;
                 }
             }
         }
@@ -521,4 +598,48 @@ impl LaunchEngine {
             .join(version)
             .join(format!("{}-{}-{}.jar", artifact, version, classifier))
     }
+}
+
+fn split_legacy_arguments(input: &str) -> Result<Vec<String>> {
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut chars = input.chars().peekable();
+    let mut quote: Option<char> = None;
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\\' => {
+                if let Some(next) = chars.next() {
+                    current.push(next);
+                } else {
+                    current.push(ch);
+                }
+            }
+            '\'' | '"' => {
+                if quote == Some(ch) {
+                    quote = None;
+                } else if quote.is_none() {
+                    quote = Some(ch);
+                } else {
+                    current.push(ch);
+                }
+            }
+            c if c.is_whitespace() && quote.is_none() => {
+                if !current.is_empty() {
+                    args.push(std::mem::take(&mut current));
+                }
+            }
+            _ => current.push(ch),
+        }
+    }
+
+    if quote.is_some() {
+        return Err(NMLError::LaunchFailed("Unclosed quote in legacy Minecraft arguments".to_string()));
+    }
+
+    if !current.is_empty() {
+        args.push(current);
+    }
+
+    Ok(args)
 }

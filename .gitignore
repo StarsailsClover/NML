@@ -3,16 +3,35 @@
 
 # Build outputs
 target/
-bin/
-obj/
+[Bb]in/
+[Oo]bj/
+**/[Bb]in/
+**/[Oo]bj/
+!nml-core/src/bin/
+!nml-core/src/bin/**
 publish/
-build/
+**/build/
 release/
 *.exe
 *.dll
 *.so
 *.dylib
 *.pdb
+
+# Runtime data
+nml-core/minecraft/
+nml-core/nml-data/
+nml-core/test-nml-data/
+
+# Flutter generated files
+NML.Flutter/.dart_tool/
+NML.Flutter/.flutter-plugins
+NML.Flutter/.flutter-plugins-dependencies
+NML.Flutter/.metadata
+
+# Diagnostics
+NML.Windows/xamlc_*.txt
+NML.Windows/*.log
 
 # IDE and editor
 .vs/

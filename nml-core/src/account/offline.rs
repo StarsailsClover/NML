@@ -19,11 +19,7 @@ impl OfflineProvider {
     /// Generate offline UUID from username
     fn generate_uuid(&self, username: &str) -> String {
         // Offline UUID v3 (MD5 based)
-        use md5::{Digest, Md5};
-        
-        let mut hasher = Md5::new();
-        hasher.update(format!("OfflinePlayer:{}", username).as_bytes());
-        let result = hasher.finalize();
+        let result = md5::compute(format!("OfflinePlayer:{}", username).as_bytes());
         
         // Format as UUID v3
         format!(

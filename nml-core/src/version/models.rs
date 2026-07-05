@@ -33,13 +33,13 @@ pub struct VersionEntry {
     /// Manifest URL
     pub url: String,
     /// Release time
-    #[serde(with = "chrono::serde::ts_rfc3339")]
     pub time: DateTime<Utc>,
     /// Release time (again)
-    #[serde(with = "chrono::serde::ts_rfc3339", rename = "releaseTime")]
+    #[serde(rename = "releaseTime")]
     pub release_time: DateTime<Utc>,
     /// SHA1 of version JSON
-    pub sha1: String,
+    #[serde(default)]
+    pub sha1: Option<String>,
 }
 
 /// Version type
@@ -56,6 +56,17 @@ pub enum VersionType {
     /// Old beta
     #[serde(rename = "old_beta")]
     OldBeta,
+}
+
+impl std::fmt::Display for VersionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VersionType::Release => write!(f, "release"),
+            VersionType::Snapshot => write!(f, "snapshot"),
+            VersionType::OldAlpha => write!(f, "old_alpha"),
+            VersionType::OldBeta => write!(f, "old_beta"),
+        }
+    }
 }
 
 /// Full version info (from version JSON)
@@ -92,10 +103,9 @@ pub struct VersionInfo {
     #[serde(rename = "minecraftArguments")]
     pub minecraft_arguments: Option<String>,
     /// Release time
-    #[serde(with = "chrono::serde::ts_rfc3339")]
     pub time: DateTime<Utc>,
     /// Release time
-    #[serde(with = "chrono::serde::ts_rfc3339", rename = "releaseTime")]
+    #[serde(rename = "releaseTime")]
     pub release_time: DateTime<Utc>,
     /// Version type
     #[serde(rename = "type")]
@@ -152,7 +162,7 @@ pub struct Rule {
 }
 
 /// Rule action
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum RuleAction {
     Allow,

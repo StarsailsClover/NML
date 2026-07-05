@@ -11,6 +11,10 @@ repository = "https://github.com/NML-Team/nml-core"
 name = "nml_core"
 crate-type = ["lib", "cdylib", "staticlib"]
 
+[[bin]]
+name = "nml"
+path = "src/bin/cli.rs"
+
 [dependencies]
 # Async runtime
 tokio = { version = "1.35", features = ["full"] }
@@ -40,6 +44,7 @@ tokio-fs = "0.1"
 
 # Hash verification
 sha1 = "0.10"
+sha2 = "0.10"
 hex = "0.4"
 
 # Configuration
@@ -53,6 +58,21 @@ zip = "0.6"
 
 # Time
 chrono = { version = "0.4", features = ["serde"] }
+
+# UUID
+uuid = { version = "1.0", features = ["v4"] }
+
+# MD5 hash
+md5 = "0.7"
+
+# Regex
+regex = "1.0"
+
+# Random
+rand = "0.8"
+
+# CLI
+clap = { version = "4.0", features = ["derive"] }
 
 # Platform-specific
 [target.'cfg(windows)'.dependencies]

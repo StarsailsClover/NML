@@ -1,0 +1,1 @@
+//! Server console (stub)

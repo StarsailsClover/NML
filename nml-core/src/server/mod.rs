@@ -45,7 +45,7 @@ pub enum ServerModLoader {
 }
 
 /// Server configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ServerConfig {
     pub server_properties: HashMap<String, String>,
     pub ops: Vec<String>,
@@ -257,8 +257,15 @@ impl ServerManager {
         
         let dest = dir.join(self.get_server_jar_name(version, modloader));
         
-        // Download
         let response = reqwest::get(&url).await?;
+        if !response.status().is_success() {
+            return Err(NMLError::DownloadFailed(format!(
+                "Failed to download server jar for {}: HTTP {}",
+                version,
+                response.status()
+            )));
+        }
+
         let bytes = response.bytes().await?;
         tokio::fs::write(&dest, bytes).await?;
         

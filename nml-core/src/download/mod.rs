@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures::future::join_all;
+use futures::StreamExt;
 use reqwest::{Client, Response, StatusCode};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
@@ -146,14 +147,15 @@ impl DownloadEngine {
     pub async fn download_batch<F>(
         &self,
         tasks: Vec<DownloadTask>,
-        mut progress: F,
+        progress: F,
     ) -> Result<Vec<Result<()>>>
     where
-        F: FnMut(usize, usize, f32),
+        F: Fn(usize, usize, f32) + Send + Sync + 'static,
     {
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
         let total = tasks.len();
         let completed = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let progress = Arc::new(progress);
 
         let futures: Vec<_> = tasks
             .into_iter()
@@ -161,19 +163,17 @@ impl DownloadEngine {
             .map(|(idx, task)| {
                 let semaphore = semaphore.clone();
                 let completed = completed.clone();
-                
-                async move {
-                    let _permit = semaphore.acquire().await.unwrap();
-                    
-                    let result = self
-                        .download(&task, |p| {
-                            let c = completed.load(std::sync::atomic::Ordering::Relaxed);
-                            let overall = (c as f32 + p) / total as f32;
-                            progress(idx, total, overall);
-                        })
-                        .await;
+                let progress = progress.clone();
 
-                    completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                async move {
+                    let _permit = semaphore.acquire().await
+                        .map_err(|_| NMLError::DownloadFailed("Download semaphore closed".to_string()))?;
+
+                    let result = self.download(&task, |_| {}).await;
+
+                    let n = completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let overall = (n + 1) as f32 / total as f32;
+                    progress(idx, total, overall);
                     result
                 }
             })
@@ -385,18 +385,6 @@ impl DownloadEngine {
             Mirror {
                 name: "BMCLAPI".to_string(),
                 base_url: "https://bmclapi2.bangbang93.com".to_string(),
-                mappings: vec![
-                    ("https://piston-meta.mojang.com".to_string(), "".to_string()),
-                    ("https://piston-data.mojang.com".to_string(), "".to_string()),
-                    ("https://launchermeta.mojang.com".to_string(), "".to_string()),
-                    ("https://launcher.mojang.com".to_string(), "".to_string()),
-                    ("https://libraries.minecraft.net".to_string(), "/maven".to_string()),
-                    ("https://resources.download.minecraft.net".to_string(), "/objects".to_string()),
-                ],
-            },
-            Mirror {
-                name: "MCBBS".to_string(),
-                base_url: "https://download.mcbbs.net".to_string(),
                 mappings: vec![
                     ("https://piston-meta.mojang.com".to_string(), "".to_string()),
                     ("https://piston-data.mojang.com".to_string(), "".to_string()),
